@@ -1,0 +1,219 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  walletAddress String    @unique
+  username      String?
+  email         String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  transactions  Transaction[]
+  sessions      Session[]
+  preferences   UserPreferences?
+  
+  @@index([walletAddress])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?  @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+model UserPreferences {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  theme           String   @default("light")
+  notifications   Boolean  @default(true)
+  language        String   @default("en")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_preferences")
+}
+
+model Transaction {
+  id              String   @id @default(uuid())
+  txHash          String   @unique
+  userId          String?
+  fromAddress     String
+  toAddress       String
+  tokenAddress    String
+  amount          String   // Stored as string to handle large numbers
+  amountInEth     String?
+  tokenAmount     String?
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  blockNumber     BigInt?
+  blockHash       String?
+  gasUsed         BigInt?
+  gasPrice        BigInt?
+  confirmations   Int      @default(0)
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  swapEvents      SwapEvent[]
+  
+  @@index([txHash])
+  @@index([userId])
+  @@index([fromAddress])
+  @@index([toAddress])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+enum TransactionType {
+  SWAP_ETH_TO_TOKEN
+  SWAP_TOKEN_TO_ETH
+  TRANSFER
+  APPROVAL
+  OTHER
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REVERTED
+}
+
+model TokenMetrics {
+  id                  String   @id @default(uuid())
+  timestamp           DateTime @default(now())
+  totalSupply         String
+  contractBalance     String
+  totalSwaps          BigInt   @default(0)
+  totalVolumeEth      String   @default("0")
+  totalVolumeTokens   String   @default("0")
+  uniqueUsers         BigInt   @default(0)
+  tokensPerEth        String
+  priceInEth          String?
+  
+  @@index([timestamp])
+  @@map("token_metrics")
+}
+
+model SwapEvent {
+  id              String   @id @default(uuid())
+  txHash          String
+  blockNumber     BigInt
+  blockHash       String
+  buyer           String
+  ethAmount       String
+  tokenAmount     String
+  tokensPerEth    String
+  logIndex        Int
+  createdAt       DateTime @default(now())
+  
+  transaction     Transaction? @relation(fields: [txHash], references: [txHash], onDelete: SetNull)
+  
+  @@unique([txHash, logIndex])
+  @@index([buyer])
+  @@index([blockNumber])
+  @@index([createdAt])
+  @@map("swap_events")
+}
+
+model RateUpdate {
+  id              String   @id @default(uuid())
+  oldRate         String
+  newRate         String
+  updatedBy       String?  // Admin address or system
+  blockNumber     BigInt?
+  txHash          String?
+  createdAt       DateTime @default(now())
+  
+  @@index([createdAt])
+  @@map("rate_updates")
+}
+
+model Leaderboard {
+  id              String   @id @default(uuid())
+  period          LeaderboardPeriod
+  walletAddress   String
+  totalSwaps      BigInt   @default(0)
+  totalVolumeEth  String   @default("0")
+  totalVolumeTokens String @default("0")
+  rank            Int
+  periodStart     DateTime
+  periodEnd       DateTime
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([period, walletAddress, periodStart])
+  @@index([period, rank])
+  @@index([walletAddress])
+  @@map("leaderboards")
+}
+
+enum LeaderboardPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ALL_TIME
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String?
+  walletAddress String?
+  type        NotificationType
+  title       String
+  message     String
+  data        Json?    // Additional data as JSON
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([walletAddress])
+  @@index([read, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  TRANSACTION_CONFIRMED
+  TRANSACTION_FAILED
+  RATE_UPDATE
+  SYSTEM_ANNOUNCEMENT
+  ACHIEVEMENT_UNLOCKED
+}
+
+model AdminLog {
+  id          String   @id @default(uuid())
+  adminId    String
+  action     String
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt   DateTime @default(now())
+  
+  @@index([adminId])
+  @@index([createdAt])
+  @@map("admin_logs")
+}
+
