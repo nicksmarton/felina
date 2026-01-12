@@ -13,6 +13,9 @@
    ```sh
    npm run dev
    ```
+4. Open your browser to:
+   - Frontend: http://localhost:8080
+   - Backend API: http://localhost:3000
 
 ## 🔗 Smart Contract Deployment (Foundry)
 1. Install Foundry:
